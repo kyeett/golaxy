@@ -2,7 +2,6 @@ package main
 
 import (
 	"math"
-	"sort"
 	"time"
 
 	"github.com/faiface/pixel"
@@ -11,91 +10,88 @@ import (
 	"golang.org/x/image/colornames"
 )
 
-var astroids []*Astroid
 var gridSize float64 = 150
 
-func main() {
-	// Create initial astroids
-	var padding float64 = 50
-	for j := float64(0); j < 4; j++ {
-		for i := float64(0); i < 3; i++ {
-			astroids = append(astroids, NewRandomAstroid(pixel.V(padding-j*gridSize, padding+i*gridSize)))
-		}
-	}
-
-	// Create scoreboard
-	s := newScoreboard()
-
-	// Start function that updates objects
-	go func(scoreboard *scoreboard) {
-		ticker := time.NewTicker(10 * time.Millisecond)
-		for {
-			<-ticker.C
-
-			for _, a := range astroids {
-				a.UpdatePosition()
-
-				// Wrap astroids around board
-				if a.pos.X > 450 {
-
-					// Wrap astroid position
-					a.pos.X = math.Mod(a.pos.X, 450) - 150
-
-					// Update scoreboard
-					scoreboard.counters["# astroids collected"]++
-					scoreboard.counters["$ earned"] += a.value
-				}
-			}
-		}
-	}(s)
-
-	pixelgl.Run(func() {
-		run(s)
-	})
+type game struct {
+	scoreboard *scoreboard
+	astroids   Astroids
 }
 
-func run(scoreboard *scoreboard) {
+func (g game) UpdatePositions() {
+	for _, a := range g.astroids {
+		a.UpdatePosition()
 
-	cfg := pixelgl.WindowConfig{
+		// Wrap astroids around board
+		if a.pos.X > 450 {
+
+			// Wrap astroid position
+			a.pos.X = math.Mod(a.pos.X, 450) - 150
+
+			// Update scoreboard
+			g.scoreboard.counters["# astroids collected"]++
+			g.scoreboard.counters["$ earned"] += a.value
+		}
+	}
+	g.scoreboard.counters["Time spent"]++
+}
+
+func (g game) run() {
+
+	win, err := pixelgl.NewWindow(pixelgl.WindowConfig{
 		Title:  "Golaxy Rocks!",
 		Bounds: pixel.R(0, 0, 450, 450+150),
 		VSync:  true,
-	}
-
-	win, err := pixelgl.NewWindow(cfg)
-	win.SetPos(pixel.V(2200, 100))
+	})
 	if err != nil {
 		panic(err)
 	}
+
+	// Used only when developing
+	win.SetPos(pixel.V(2200, 100))
+
 	imd := imdraw.New(nil)
 	imd.Color = colornames.White
 	imd.EndShape = imdraw.RoundEndShape
 
+	ticker := time.NewTicker(10 * time.Millisecond)
 	for !win.Closed() {
+		// Limit the update frequency to once 100 times per second
+		<-ticker.C
+
+		// Updates positions and score
+		g.UpdatePositions()
+
+		// Clear main IMDraw
 		imd.Clear()
 
-		scoreboard.Update()
-
-		for _, a := range astroids {
-
-			imd.Push(a.corners...)
-			imd.SetMatrix(pixel.IM.Rotated(pixel.V(25, 25), (math.Pi/180)*float64(a.angle)).Moved(a.pos))
-			imd.Polygon(1)
-		}
+		g.scoreboard.PrepareDraw()
+		g.astroids.PrepareDraw(imd)
 
 		// Clear and draw
 		win.Clear(colornames.Black)
-		scoreboard.Draw(win, pixel.IM)
+		g.scoreboard.Draw(win, pixel.IM)
 		imd.Draw(win)
 		win.Update()
 	}
 }
 
-func sortedKeys(m map[string]int) []string {
-	var keys []string
-	for k := range m {
-		keys = append(keys, k)
+func main() {
+
+	// Initialize game
+	g := game{
+		newScoreboard(),
+		[]*Astroid{},
 	}
-	sort.Strings(keys)
-	return keys
+
+	// Create astroids
+	var padding float64 = 50
+	for j := float64(0); j < 4; j++ {
+		for i := float64(0); i < 3; i++ {
+			a := NewRandomAstroid(pixel.V(padding-j*gridSize, padding+i*gridSize))
+			g.astroids = append(g.astroids, &a)
+		}
+	}
+
+	// Start main loop
+	pixelgl.Run(g.run)
 }
