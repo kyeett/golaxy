@@ -6,7 +6,6 @@ import (
 
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/text"
-	"golang.org/x/image/font/basicfont"
 )
 
 type scoreboard struct {
@@ -24,7 +23,7 @@ func (s scoreboard) PrepareDraw() {
 }
 
 func newScoreboard() *scoreboard {
-	basicAtlas := text.NewAtlas(basicfont.Face7x13, text.ASCII)
+	basicAtlas := text.Atlas7x13
 
 	s := &scoreboard{
 		make(map[string]int),
