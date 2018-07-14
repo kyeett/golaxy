@@ -6,6 +6,7 @@ import (
 
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/imdraw"
+	"golang.org/x/image/colornames"
 )
 
 // Astroid represents a polygon with a current angle and position
@@ -32,15 +33,16 @@ func NewRandomAstroid(p pixel.Vec) Astroid {
 		1,
 		2,
 	}
+
+	nCorners := 5 + rand.Intn(4)
+	corners := []pixel.Vec{}
+	for i := 0; i < nCorners; i++ {
+		corners = append(corners, pixel.V(float64(5+rand.Intn(60)), 0).Rotated(2*math.Pi*float64(i)/float64(nCorners)).Add(pixel.V(25, 25)))
+	}
+	corners = append(corners, corners[0])
+
 	return Astroid{
-		corners: []pixel.Vec{
-			pixel.V(0, 0),
-			pixel.V(25, 0),
-			pixel.V(50, 25),
-			pixel.V(25, 50),
-			pixel.V(0, 50),
-			pixel.V(0, 0),
-		},
+		corners:    corners,
 		pos:        p,
 		angle:      rand.Intn(360),
 		angleSpeed: angleSpeeds[rand.Intn(len(angleSpeeds))],
@@ -54,9 +56,20 @@ type Astroids []*Astroid
 // PrepareDraw pushes the vertices of all astroids to the IMDraw object
 // and applies tranformation to them
 func (as Astroids) PrepareDraw(imd *imdraw.IMDraw) {
+
+	//Draw fill
+	imd.Color = colornames.Grey
 	for _, a := range as {
 		imd.Push(a.corners...)
 		imd.SetMatrix(pixel.IM.Rotated(pixel.V(25, 25), (math.Pi/180)*float64(a.angle)).Moved(a.pos))
-		imd.Polygon(1)
+		imd.Polygon(0)
+	}
+
+	//Draw outline
+	imd.Color = colornames.White
+	for _, a := range as {
+		imd.Push(a.corners...)
+		imd.SetMatrix(pixel.IM.Rotated(pixel.V(25, 25), (math.Pi/180)*float64(a.angle)).Moved(a.pos))
+		imd.Polygon(2)
 	}
 }
